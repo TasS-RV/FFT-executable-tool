@@ -330,11 +330,12 @@ class FFTToolApp:
         """
         FILTERING STAGE: applied on raw data rather than interpolated data, to avoid losing any information.
 
-        Functions have been imported from filter_data.py to avoid clutter.
-        Filter parameters are read from UI controls, allowing dynamic enable/disable and parameter adjustment.
+        1. Functions have been imported from filter_data.py to avoid clutter.
+        2. Filter parameters are read from UI controls, allowing dynamic enable/disable and parameter adjustment.
+
+        Key note: filtering stages are applied in order of mathematical precedence, and this order is preserved even when some filters
+        are disabled. I.e. if HP is disabled but median and LP filters are enabled, LP is still applied after Median.
         """
-        
-        # Read filter enable/disable states from UI
         do_median = self.do_median_var.get()
         do_hp = self.do_hp_var.get()
         do_notch = self.do_notch_var.get()
