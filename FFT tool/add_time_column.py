@@ -2,6 +2,8 @@
 TEMPORARY UTILITY FUNCTION
 Adds time column to Combined_book4.csv
 This function can be deleted after running once.
+
+Useful for data parsed form the Oscilloscope USB file - due to being stored in mixed data format (annoying presense of Strings).
 """
 import pandas as pd
 import numpy as np
