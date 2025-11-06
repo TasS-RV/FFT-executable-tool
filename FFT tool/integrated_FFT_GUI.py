@@ -63,6 +63,79 @@ class FFTToolApp:
         self.step_spin.pack(anchor="w", pady=(2, 6))
         ttk.Label(ctrl, text="(Integer; 1 = use all samples)").pack(anchor="w", pady=(0,6))
 
+        ttk.Separator(ctrl).pack(fill="x", pady=8)
+        
+        # Filtering controls
+        ttk.Label(ctrl, text="Filtering Options", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(4, 6))
+        
+        # Median filter
+        med_frame = ttk.Frame(ctrl)
+        med_frame.pack(anchor="w", pady=2, fill="x")
+        self.do_median_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(med_frame, text="Median filter", variable=self.do_median_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(med_frame, text="k:").grid(row=0, column=1, padx=(8,2))
+        self.median_k_entry = ttk.Entry(med_frame, width=6)
+        self.median_k_entry.grid(row=0, column=2, padx=2)
+        self.median_k_entry.insert(0, "5")
+        
+        # High-pass filter
+        hp_frame = ttk.Frame(ctrl)
+        hp_frame.pack(anchor="w", pady=2, fill="x")
+        self.do_hp_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(hp_frame, text="High-pass", variable=self.do_hp_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(hp_frame, text="Cutoff (Hz):").grid(row=0, column=1, padx=(8,2))
+        self.hp_cut_entry = ttk.Entry(hp_frame, width=8)
+        self.hp_cut_entry.grid(row=0, column=2, padx=2)
+        self.hp_cut_entry.insert(0, "0.1")
+        ttk.Label(hp_frame, text="Order:").grid(row=0, column=3, padx=(8,2))
+        self.hp_order_entry = ttk.Entry(hp_frame, width=6)
+        self.hp_order_entry.grid(row=0, column=4, padx=2)
+        self.hp_order_entry.insert(0, "3")
+        
+        # Notch filter
+        notch_frame = ttk.Frame(ctrl)
+        notch_frame.pack(anchor="w", pady=2, fill="x")
+        self.do_notch_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(notch_frame, text="Notch filter", variable=self.do_notch_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(notch_frame, text="Freqs (Hz, comma-sep):").grid(row=0, column=1, padx=(8,2))
+        self.notch_freqs_entry = ttk.Entry(notch_frame, width=12)
+        self.notch_freqs_entry.grid(row=0, column=2, padx=2)
+        self.notch_freqs_entry.insert(0, "50.0")
+        ttk.Label(notch_frame, text="Q:").grid(row=0, column=3, padx=(8,2))
+        self.notch_Q_entry = ttk.Entry(notch_frame, width=6)
+        self.notch_Q_entry.grid(row=0, column=4, padx=2)
+        self.notch_Q_entry.insert(0, "30")
+        
+        # Low-pass filter
+        lp_frame = ttk.Frame(ctrl)
+        lp_frame.pack(anchor="w", pady=2, fill="x")
+        self.do_lp_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(lp_frame, text="Low-pass", variable=self.do_lp_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(lp_frame, text="Cutoff (Hz):").grid(row=0, column=1, padx=(8,2))
+        self.lp_cut_entry = ttk.Entry(lp_frame, width=8)
+        self.lp_cut_entry.grid(row=0, column=2, padx=2)
+        self.lp_cut_entry.insert(0, "250.0")
+        ttk.Label(lp_frame, text="Order:").grid(row=0, column=3, padx=(8,2))
+        self.lp_order_entry = ttk.Entry(lp_frame, width=6)
+        self.lp_order_entry.grid(row=0, column=4, padx=2)
+        self.lp_order_entry.insert(0, "4")
+        
+        # Savitzky-Golay filter
+        sav_frame = ttk.Frame(ctrl)
+        sav_frame.pack(anchor="w", pady=2, fill="x")
+        self.do_savgol_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(sav_frame, text="Savitzky-Golay", variable=self.do_savgol_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(sav_frame, text="Window:").grid(row=0, column=1, padx=(8,2))
+        self.sav_window_entry = ttk.Entry(sav_frame, width=6)
+        self.sav_window_entry.grid(row=0, column=2, padx=2)
+        self.sav_window_entry.insert(0, "11")
+        ttk.Label(sav_frame, text="Poly order:").grid(row=0, column=3, padx=(8,2))
+        self.sav_polyorder_entry = ttk.Entry(sav_frame, width=6)
+        self.sav_polyorder_entry.grid(row=0, column=4, padx=2)
+        self.sav_polyorder_entry.insert(0, "3")
+
+        ttk.Separator(ctrl).pack(fill="x", pady=8)
+
         # FFT range controls
         ttk.Label(ctrl, text="FFT frequency limits (optional)").pack(anchor="w", pady=(6, 0))
         fr_frame = ttk.Frame(ctrl)
@@ -240,15 +313,78 @@ class FFTToolApp:
         FILTERING STAGE: applied on raw data rather than interpolated data, to avoid losing any information.
 
         Functions have been imported from filter_data.py to avoid clutter.
-        
-        Justifications for frequency cut-offs, roll-offs etc... are defined below for each different filtering stage.
+        Filter parameters are read from UI controls, allowing dynamic enable/disable and parameter adjustment.
         """
-
+        
+        # Read filter enable/disable states from UI
+        do_median = self.do_median_var.get()
+        do_hp = self.do_hp_var.get()
+        do_notch = self.do_notch_var.get()
+        do_lp = self.do_lp_var.get()
+        do_savgol = self.do_savgol_var.get()
+        
+        # Read and parse filter parameters from UI (only if filter is enabled)
+        try:
+            median_k = int(self.median_k_entry.get()) if do_median else 5
+        except (ValueError, AttributeError):
+            median_k = 5
+            
+        try:
+            if do_hp:
+                hp_cut = float(self.hp_cut_entry.get())
+                hp_order = int(self.hp_order_entry.get())
+            else:
+                hp_cut = 0.1
+                hp_order = 3
+        except (ValueError, AttributeError):
+            hp_cut = 0.1
+            hp_order = 3
+            
+        try:
+            if do_notch:
+                # Parse comma-separated notch frequencies
+                notch_freqs_str = self.notch_freqs_entry.get().strip()
+                if notch_freqs_str:
+                    notch_freqs = [float(f.strip()) for f in notch_freqs_str.split(",") if f.strip()]
+                else:
+                    notch_freqs = None
+                notch_Q = float(self.notch_Q_entry.get())
+            else:
+                notch_freqs = None
+                notch_Q = 30
+        except (ValueError, AttributeError):
+            notch_freqs = [50.0] if do_notch else None
+            notch_Q = 30
+            
+        try:
+            if do_lp:
+                lp_cut = float(self.lp_cut_entry.get())
+                lp_order = int(self.lp_order_entry.get())
+            else:
+                lp_cut = 250.0
+                lp_order = 4
+        except (ValueError, AttributeError):
+            lp_cut = 250.0
+            lp_order = 4
+            
+        try:
+            if do_savgol:
+                sav_window = int(self.sav_window_entry.get())
+                sav_polyorder = int(self.sav_polyorder_entry.get())
+            else:
+                sav_window = 11
+                sav_polyorder = 3
+        except (ValueError, AttributeError):
+            sav_window = 11
+            sav_polyorder = 3
+        
+        # Apply filtering with UI-controlled parameters
         y_clean = preprocess_signal(x_all, y_all,
-                                    do_median=True, median_k=5,
-                                    do_hp=True, hp_cut=0.1,
-                                    do_notch=True, notch_freqs=[50.0], notch_Q=30,
-                                    do_lp=True, lp_cut=250.0)
+                                    do_median=do_median, median_k=median_k,
+                                    do_hp=do_hp, hp_cut=hp_cut, hp_order=hp_order,
+                                    do_notch=do_notch, notch_freqs=notch_freqs, notch_Q=notch_Q,
+                                    do_lp=do_lp, lp_cut=lp_cut, lp_order=lp_order,
+                                    do_savgol=do_savgol, sav_window=sav_window, polyorder=sav_polyorder)
         # Resetting the cleaned y_all data:
         y_all = y_clean
 
