@@ -6,6 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+from filter_data import *
+
 # Make Tk report exceptions to console (more readable)
 def _tk_exception_handler(self, exc, val, tb):
     import traceback
@@ -196,7 +198,7 @@ class FFTToolApp:
         x_all = xs[valid].to_numpy()
         y_all = ys[valid].to_numpy()
 
-        # sort by x (if unsorted)
+        # Sorting x-data: if input data somehow has non chronological time, or picks up 'reverse' rotations  is an error!).
         if not np.all(np.diff(x_all) >= 0):
             order = np.argsort(x_all)
             x_all = x_all[order]
@@ -228,6 +230,22 @@ class FFTToolApp:
         dx_base = float(np.mean(dxs))
         self.original_dx = dx_base
 
+        """
+        FILTERING STAGE: applied on raw data rather than interpolated data, to avoid losing any information.
+
+        Functions have been imported from filter_data.py to avoid clutter.
+        
+        Justifications for frequency cut-offs, roll-offs etc... are defined below for each different filtering stage.
+        """
+
+        y_clean = preprocess_signal(x_all, y_all,
+                                    do_median=True, median_k=5,
+                                    do_hp=True, hp_cut=0.1,
+                                    do_notch=True, notch_freqs=[50.0], notch_Q=30,
+                                    do_lp=True, lp_cut=250.0)
+        # Resetting the cleaned y_all data:
+        y_all = y_clean
+
         # Create uniform x-grid based on mean step size for FFT (FFT requires uniform spacing)
         x_min = float(x_all[0])
         x_max = float(x_all[-1])
@@ -238,6 +256,8 @@ class FFTToolApp:
         """
         ANCHOR|Critical step: Interpolate the y-data to a uniform list of x-values - increments are dx_base. This does not affect the multiplier, because it will not affect the step_size multipler,
         given it is index based (rather than being value based, so will land on interpolated y-values anyways).
+
+        Note: this still captures any spiky, horrible noisy datapoints.
         """
         y_interp = np.interp(x_uniform, x_all, y_all)
         
