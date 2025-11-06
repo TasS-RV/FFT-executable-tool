@@ -100,7 +100,7 @@ magnitude_interp_2 = np.abs(fft_ch1_interp_2) / len(ch1_interp_2)
 
 # Define zoom range for visualization (up to 1 Hz)
 #max_freq = 1  
-max_freq = 0.2
+max_freq = 0.2 # This is not the frequency directly - it is a scaling factor of what to truncate to
 mask = (freqs >= 0) & (freqs <= max_freq)
 freqs_zoomed = freqs[mask] *360
 magnitude_zoomed_1 = magnitude_interp_1[mask]

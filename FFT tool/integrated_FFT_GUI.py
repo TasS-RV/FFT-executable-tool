@@ -162,6 +162,11 @@ class FFTToolApp:
         self.fmin_entry = ttk.Entry(fr_frame, width=10); self.fmin_entry.grid(row=0, column=1, padx=(4,10))
         ttk.Label(fr_frame, text="Fmax").grid(row=0, column=2)
         self.fmax_entry = ttk.Entry(fr_frame, width=10); self.fmax_entry.grid(row=0, column=3, padx=(4,0))
+        
+        # Frequency unit conversion (cycles/degree to cycles/revolution)
+        self.convert_to_rev_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ctrl, text="Convert frequency to cycles/revolution (×360)", 
+                       variable=self.convert_to_rev_var).pack(anchor="w", pady=(6, 0))
 
         # Y limits for raw and FFT
         ttk.Label(ctrl, text="Raw Y-limits (optional)").pack(anchor="w", pady=(8,0))
@@ -480,13 +485,27 @@ class FFTToolApp:
             fmax = float(self.fmax_entry.get()) if self.fmax_entry.get().strip() != "" else None
         except ValueError:
             fmax = None
+        """
+        ANCHOR| Frequency unit conversion (cycles/degree to cycles/revolution)    
+        This is used to convert the frequency axis to cycles/revolution, which is more intuitive for the user.
+        This is done by multiplying the temporal frequency by 360, which is the number of degrees in a revolution. Whcich actually gives a meaningful spatial
+        oscillation/ variation for something like a torque ripple/ cogging measurement.
+        """
 
-        mask = np.ones_like(freq_pos, dtype=bool)
+        # Apply optional frequency unit conversion (cycles/degree to cycles/revolution)
+        convert_to_rev = self.convert_to_rev_var.get()
+        self.convert_to_rev = convert_to_rev  # Store for use in mouse move handler
+        if convert_to_rev:
+            freq_pos_converted = freq_pos * 360  # Convert to cycles per revolution
+        else:
+            freq_pos_converted = freq_pos  # Keep as cycles per degree
+        
+        mask = np.ones_like(freq_pos_converted, dtype=bool)
         if fmin is not None:
-            mask &= (freq_pos >= fmin)
+            mask &= (freq_pos_converted >= fmin)
         if fmax is not None:
-            mask &= (freq_pos <= fmax)
-        freq_plot = freq_pos[mask]
+            mask &= (freq_pos_converted <= fmax)
+        freq_plot = freq_pos_converted[mask]
         amp_plot = amp_pos[mask]
 
         # --- Plot raw data (top) ---
@@ -535,7 +554,11 @@ class FFTToolApp:
         self.ax_fft.clear()
         self.ax_fft.plot(freq_plot, amp_plot, lw=0.8, color="orange")
         self.ax_fft.set_title("FFT Spectrum")
-        self.ax_fft.set_xlabel("Frequency (1 / X unit)")
+        # Update x-axis label based on conversion
+        if convert_to_rev:
+            self.ax_fft.set_xlabel("Frequency (cycles / revolution)")
+        else:
+            self.ax_fft.set_xlabel("Frequency (1 / X unit)")
         self.ax_fft.set_ylabel("Amplitude")
         self.ax_fft.grid(True)
 
@@ -614,9 +637,14 @@ class FFTToolApp:
                 # reflect same x on raw vertical line
                 if self.vline_raw is not None:
                     self.vline_raw.set_xdata([x, x])
-                self.cursor_label.config(text=f"FFT: f={x:.6g}, A={y:.6g}")
+                # Show units in cursor label based on conversion
+                if hasattr(self, 'convert_to_rev') and self.convert_to_rev:
+                    unit_label = "cycles/rev"
+                else:
+                    unit_label = "1/X unit"
+                self.cursor_label.config(text=f"FFT: f={x:.6g} {unit_label}, A={y:.6g}")
                 if self.fft_text is not None:
-                    self.fft_text.set_text(f"f={x:.6g}, A={y:.6g}")
+                    self.fft_text.set_text(f"f={x:.6g} {unit_label}, A={y:.6g}")
         except Exception as e:
             # defensive: print but don't crash GUI
             print("Cursor update error:", e)
