@@ -13,27 +13,30 @@ def estimate_fs_from_x(x):
     dx_med = np.median(dx)
     return 1.0 / dx_med
 
-
 def butter_sos(lowcut=None, highcut=None, fs=1.0, order=4):
-    """
-    Create a Butterworth filter in SOS form.
-    Can be low-pass, high-pass, or band-pass depending on inputs.
-    """
-    from scipy.signal import butter
     nyq = 0.5 * fs
-    if lowcut and highcut:
-        low = lowcut / nyq
-        high = highcut / nyq
+    # Ensure valid normalized frequencies
+    if lowcut is not None:
+        low = max(lowcut / nyq, 1e-6)
+    else:
+        low = None
+    if highcut is not None:
+        high = min(highcut / nyq, 0.9999)
+    else:
+        high = None
+
+    if low and high:
+        if low >= high:
+            raise ValueError(f"Invalid band: low={lowcut}Hz ≥ high={highcut}Hz for fs={fs}Hz")
         sos = butter(order, [low, high], btype="band", output="sos")
-    elif highcut:
-        high = highcut / nyq
+    elif high:
         sos = butter(order, high, btype="low", output="sos")
-    elif lowcut:
-        low = lowcut / nyq
+    elif low:
         sos = butter(order, low, btype="high", output="sos")
     else:
         raise ValueError("Specify lowcut and/or highcut for Butterworth filter.")
     return sos
+
 
 
 def apply_sos_filter(y, sos):

@@ -79,6 +79,12 @@ class FFTToolApp:
         ttk.Label(raw_frame, text="Ymin").grid(row=0, column=0); self.raw_ymin = ttk.Entry(raw_frame, width=8); self.raw_ymin.grid(row=0,column=1,padx=4)
         ttk.Label(raw_frame, text="Ymax").grid(row=0, column=2); self.raw_ymax = ttk.Entry(raw_frame, width=8); self.raw_ymax.grid(row=0,column=3,padx=4)
 
+        ttk.Label(ctrl, text="Raw X-limits (optional)").pack(anchor="w", pady=(6,0))
+        rawx_frame = ttk.Frame(ctrl)
+        rawx_frame.pack(anchor="w", pady=2)
+        ttk.Label(rawx_frame, text="Xmin").grid(row=0, column=0); self.raw_xmin = ttk.Entry(rawx_frame, width=8); self.raw_xmin.grid(row=0,column=1,padx=4)
+        ttk.Label(rawx_frame, text="Xmax").grid(row=0, column=2); self.raw_xmax = ttk.Entry(rawx_frame, width=8); self.raw_xmax.grid(row=0,column=3,padx=4)
+
         ttk.Label(ctrl, text="FFT Y-limits (optional)").pack(anchor="w", pady=(6,0))
         fftyl = ttk.Frame(ctrl)
         fftyl.pack(anchor="w", pady=2)
@@ -342,6 +348,15 @@ class FFTToolApp:
             rymax = float(self.raw_ymax.get()) if self.raw_ymax.get().strip() != "" else None
             if rymin is not None or rymax is not None:
                 self.ax_raw.set_ylim(rymin, rymax)
+        except ValueError:
+            pass
+
+        # apply raw X limits if given
+        try:
+            rxmin = float(self.raw_xmin.get()) if self.raw_xmin.get().strip() != "" else None
+            rxmax = float(self.raw_xmax.get()) if self.raw_xmax.get().strip() != "" else None
+            if rxmin is not None or rxmax is not None:
+                self.ax_raw.set_xlim(rxmin, rxmax)
         except ValueError:
             pass
 
