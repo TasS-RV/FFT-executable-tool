@@ -120,6 +120,24 @@ class FFTToolApp:
         self.lp_order_entry.grid(row=0, column=4, padx=2)
         self.lp_order_entry.insert(0, "4")
         
+        # Bandpass filter
+        bp_frame = ttk.Frame(ctrl)
+        bp_frame.pack(anchor="w", pady=2, fill="x")
+        self.do_bp_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bp_frame, text="Bandpass", variable=self.do_bp_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(bp_frame, text="Low (Hz):").grid(row=0, column=1, padx=(8,2))
+        self.bp_low_entry = ttk.Entry(bp_frame, width=8)
+        self.bp_low_entry.grid(row=0, column=2, padx=2)
+        self.bp_low_entry.insert(0, "10.0")
+        ttk.Label(bp_frame, text="High (Hz):").grid(row=0, column=3, padx=(8,2))
+        self.bp_high_entry = ttk.Entry(bp_frame, width=8)
+        self.bp_high_entry.grid(row=0, column=4, padx=2)
+        self.bp_high_entry.insert(0, "100.0")
+        ttk.Label(bp_frame, text="Order:").grid(row=0, column=5, padx=(8,2))
+        self.bp_order_entry = ttk.Entry(bp_frame, width=6)
+        self.bp_order_entry.grid(row=0, column=6, padx=2)
+        self.bp_order_entry.insert(0, "4")
+        
         # Savitzky-Golay filter
         sav_frame = ttk.Frame(ctrl)
         sav_frame.pack(anchor="w", pady=2, fill="x")
@@ -321,6 +339,7 @@ class FFTToolApp:
         do_hp = self.do_hp_var.get()
         do_notch = self.do_notch_var.get()
         do_lp = self.do_lp_var.get()
+        do_bp = self.do_bp_var.get()
         do_savgol = self.do_savgol_var.get()
         
         # Read and parse filter parameters from UI (only if filter is enabled)
@@ -368,6 +387,20 @@ class FFTToolApp:
             lp_order = 4
             
         try:
+            if do_bp:
+                bp_low = float(self.bp_low_entry.get())
+                bp_high = float(self.bp_high_entry.get())
+                bp_order = int(self.bp_order_entry.get())
+            else:
+                bp_low = 10.0
+                bp_high = 100.0
+                bp_order = 4
+        except (ValueError, AttributeError):
+            bp_low = 10.0
+            bp_high = 100.0
+            bp_order = 4
+            
+        try:
             if do_savgol:
                 sav_window = int(self.sav_window_entry.get())
                 sav_polyorder = int(self.sav_polyorder_entry.get())
@@ -384,6 +417,7 @@ class FFTToolApp:
                                     do_hp=do_hp, hp_cut=hp_cut, hp_order=hp_order,
                                     do_notch=do_notch, notch_freqs=notch_freqs, notch_Q=notch_Q,
                                     do_lp=do_lp, lp_cut=lp_cut, lp_order=lp_order,
+                                    do_bp=do_bp, bp_low=bp_low, bp_high=bp_high, bp_order=bp_order,
                                     do_savgol=do_savgol, sav_window=sav_window, polyorder=sav_polyorder)
         # Resetting the cleaned y_all data:
         y_all = y_clean

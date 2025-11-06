@@ -57,6 +57,7 @@ def preprocess_signal(x, y,
                       do_hp=True, hp_cut=0.1, hp_order=3,
                       do_notch=False, notch_freqs=None, notch_Q=30,
                       do_lp=True, lp_cut=250.0, lp_order=4,
+                      do_bp=False, bp_low=10.0, bp_high=100.0, bp_order=4,
                       do_savgol=False, sav_window=11, polyorder=3):
     """
     Full preprocessing pipeline for arbitrary (x, y) data.
@@ -86,6 +87,11 @@ def preprocess_signal(x, y,
     if do_lp:
         sos_lp = butter_sos(lowcut=None, highcut=lp_cut, fs=fs, order=lp_order)
         y_filt = apply_sos_filter(y_filt, sos_lp)
+
+    # 5b️⃣ Bandpass filter (alternative to HP+LP combination)
+    if do_bp:
+        sos_bp = butter_sos(lowcut=bp_low, highcut=bp_high, fs=fs, order=bp_order)
+        y_filt = apply_sos_filter(y_filt, sos_bp)
 
     # 6️⃣ Optional Savitzky–Golay smoothing
     if do_savgol:
