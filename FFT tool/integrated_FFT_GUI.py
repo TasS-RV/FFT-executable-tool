@@ -1,242 +1,4 @@
-# # integrated_FFT_GUI_int_slider.py
-# import tkinter as tk
-# from tkinter import ttk, filedialog, messagebox
-# import pandas as pd
-# import numpy as np
-# import matplotlib.pyplot as plt
-# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-# import time
-# import os
-
-# class FFTToolApp:
-#     def __init__(self, root):
-#         self.root = root
-#         self.root.title("FFT Analysis Tool")
-#         self.root.geometry("1350x820")
-
-#         # State variables
-#         self.full_df = None
-#         self.available_cols = []
-#         self.x_column = tk.StringVar()
-#         self.y_column = tk.StringVar()
-#         self.step_mult = tk.IntVar(value=1)  # now integer
-#         self.cursor_display_text = tk.StringVar(value="Cursor: None")
-
-#         # --- Left Control Panel ---
-#         control = ttk.Frame(root, width=330, padding=8)
-#         control.pack(side="left", fill="y")
-
-#         ttk.Label(control, text="File & Columns", font=("Segoe UI", 11, "bold")).pack(anchor="w")
-#         ttk.Button(control, text="Load CSV/Excel", command=self.load_file).pack(fill="x", pady=(6,8))
-
-#         ttk.Label(control, text="X (time/position):").pack(anchor="w")
-#         self.x_menu = ttk.Combobox(control, textvariable=self.x_column, state="readonly")
-#         self.x_menu.pack(fill="x", pady=2)
-#         self.x_menu.bind("<<ComboboxSelected>>", self.on_col_select)
-
-#         ttk.Label(control, text="Y (signal):").pack(anchor="w", pady=(6,0))
-#         self.y_menu = ttk.Combobox(control, textvariable=self.y_column, state="readonly")
-#         self.y_menu.pack(fill="x", pady=2)
-#         self.y_menu.bind("<<ComboboxSelected>>", self.on_col_select)
-
-#         ttk.Separator(control).pack(fill="x", pady=8)
-
-#         ttk.Label(control, text="Axis Limits — Raw Data", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(2,2))
-#         raw_frame = ttk.Frame(control)
-#         raw_frame.pack(fill="x", pady=2)
-#         ttk.Label(raw_frame, text="Xmin").grid(row=0,column=0); self.raw_xmin = ttk.Entry(raw_frame,width=8); self.raw_xmin.grid(row=0,column=1)
-#         ttk.Label(raw_frame, text="Xmax").grid(row=0,column=2); self.raw_xmax = ttk.Entry(raw_frame,width=8); self.raw_xmax.grid(row=0,column=3)
-#         ttk.Label(raw_frame, text="Ymin").grid(row=1,column=0); self.raw_ymin = ttk.Entry(raw_frame,width=8); self.raw_ymin.grid(row=1,column=1)
-#         ttk.Label(raw_frame, text="Ymax").grid(row=1,column=2); self.raw_ymax = ttk.Entry(raw_frame,width=8); self.raw_ymax.grid(row=1,column=3)
-
-#         ttk.Label(control, text="Axis Limits — FFT", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(6,2))
-#         fft_frame = ttk.Frame(control)
-#         fft_frame.pack(fill="x", pady=2)
-#         ttk.Label(fft_frame, text="Fmin").grid(row=0,column=0); self.fft_fmin = ttk.Entry(fft_frame,width=8); self.fft_fmin.grid(row=0,column=1)
-#         ttk.Label(fft_frame, text="Fmax").grid(row=0,column=2); self.fft_fmax = ttk.Entry(fft_frame,width=8); self.fft_fmax.grid(row=0,column=3)
-#         ttk.Label(fft_frame, text="Ymin").grid(row=1,column=0); self.fft_ymin = ttk.Entry(fft_frame,width=8); self.fft_ymin.grid(row=1,column=1)
-#         ttk.Label(fft_frame, text="Ymax").grid(row=1,column=2); self.fft_ymax = ttk.Entry(fft_frame,width=8); self.fft_ymax.grid(row=1,column=3)
-
-#         ttk.Separator(control).pack(fill="x", pady=8)
-#         ttk.Label(control, text="Step-size Multiplier (integer)", font=("Segoe UI", 10)).pack(anchor="w")
-
-#         # Integer slider
-#         self.slider = ttk.Scale(control, from_=1, to=10, variable=self.step_mult,
-#                                 orient="horizontal", command=self.slider_changed)
-#         self.slider.pack(fill="x", pady=4)
-#         self.slider_label = ttk.Label(control, text="Multiplier = 1")
-#         self.slider_label.pack(anchor="w")
-
-#         ttk.Button(control, text="Run / Recompute FFT", command=self.run_plot).pack(fill="x", pady=(10,4))
-#         ttk.Button(control, text="Save Snapshot", command=self.save_snapshot).pack(fill="x", pady=(2,4))
-
-#         ttk.Label(control, textvariable=self.cursor_display_text, font=("Segoe UI", 9)).pack(anchor="w", pady=(10,0))
-
-#         # --- Right Plot Panel ---
-#         self.fig, (self.ax_raw, self.ax_fft) = plt.subplots(2, 1, figsize=(9, 6), dpi=100)
-#         self.fig.tight_layout(pad=3.0)
-
-#         self.canvas = FigureCanvasTkAgg(self.fig, master=root)
-#         self.canvas.get_tk_widget().pack(side="right", fill="both", expand=True)
-
-#         # Crosshair lines
-#         self.vline_raw = self.ax_raw.axvline(color="gray", lw=0.8, alpha=0.7)
-#         self.hline_raw = self.ax_raw.axhline(color="gray", lw=0.8, alpha=0.7)
-#         self.vline_fft = self.ax_fft.axvline(color="gray", lw=0.8, alpha=0.7)
-#         self.hline_fft = self.ax_fft.axhline(color="gray", lw=0.8, alpha=0.7)
-
-#         # Mouse move for cursor
-#         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move)
-
-#     # ------------- File Loading -------------
-#     def load_file(self):
-#         path = filedialog.askopenfilename(
-#             title="Select CSV or Excel",
-#             filetypes=[("CSV Files", "*.csv"), ("Excel Files", "*.xlsx;*.xls")]
-#         )
-#         if not path:
-#             return
-#         try:
-#             if path.endswith(".csv"):
-#                 df = pd.read_csv(path, header=0, low_memory=False)
-#             else:
-#                 df = pd.read_excel(path, header=0)
-#             valid = []
-#             for c in df.columns:
-#                 if pd.to_numeric(df[c], errors="coerce").notna().any():
-#                     valid.append(c)
-#             self.full_df = df
-#             self.available_cols = valid
-#             self.x_menu["values"] = valid
-#             self.y_menu["values"] = valid
-#             self.x_column.set(valid[0])
-#             if len(valid) > 1:
-#                 self.y_column.set(valid[1])
-#             print(f"Loaded: {os.path.basename(path)}")
-#             print("Detected numeric-like columns:", valid)
-#         except Exception as e:
-#             messagebox.showerror("Error", str(e))
-
-#     # ------------- Column Selection -------------
-#     def on_col_select(self, event=None):
-#         col = event.widget.get()
-#         print(f"Selected column: {col}")
-#         if self.full_df is not None and col in self.full_df.columns:
-#             print(self.full_df[col].head(10))
-#         self.run_plot()
-
-#     # ------------- Slider -------------
-#     def slider_changed(self, event=None):
-#         val = int(round(self.step_mult.get()))
-#         self.step_mult.set(val)  # force integer
-#         self.slider_label.config(text=f"Multiplier = {val}")
-#         self.run_plot()
-
-#     # ------------- Mouse Crosshair -------------
-#     def on_mouse_move(self, event):
-#         if event.inaxes is None:
-#             self.cursor_display_text.set("Cursor: None")
-#             return
-#         x, y = event.xdata, event.ydata
-#         ax = event.inaxes
-#         if ax == self.ax_raw:
-#             self.vline_raw.set_xdata([x, x])
-#             self.hline_raw.set_ydata([y, y])
-#             label = f"Raw: x={x:.4g}, y={y:.4g}"
-#         elif ax == self.ax_fft:
-#             self.vline_fft.set_xdata([x, x])
-#             self.hline_fft.set_ydata([y, y])
-#             label = f"FFT: f={x:.4g}, A={y:.4g}"
-#         self.cursor_display_text.set(label)
-#         self.canvas.draw_idle()
-
-#     # ------------- Plot / FFT -------------
-#     def run_plot(self):
-#         if self.full_df is None:
-#             return
-#         x_col, y_col = self.x_column.get(), self.y_column.get()
-#         if not x_col or not y_col:
-#             return
-
-#         x = pd.to_numeric(self.full_df[x_col], errors="coerce")
-#         y = pd.to_numeric(self.full_df[y_col], errors="coerce")
-#         valid = x.notna() & y.notna()
-#         x, y = x[valid].to_numpy(), y[valid].to_numpy()
-#         if len(x) < 4:
-#             return
-#         if not np.all(np.diff(x) > 0):
-#             idx = np.argsort(x)
-#             x, y = x[idx], y[idx]
-
-#         dx_est = np.mean(np.diff(x))
-#         mult = int(self.step_mult.get())
-#         new_dx = dx_est * mult
-#         # Resample to new grid so FFT meaningfully changes
-#         new_x = np.arange(x[0], x[-1], new_dx)
-#         new_y = np.interp(new_x, x, y)
-
-#         # --- RAW PLOT ---
-#         self.ax_raw.clear()
-#         self.ax_raw.plot(x, y, lw=1, color="tab:blue")
-#         self.ax_raw.set_title(f"Raw Data: {y_col} vs {x_col}")
-#         self.ax_raw.set_xlabel(x_col)
-#         self.ax_raw.set_ylabel(y_col)
-#         self.ax_raw.grid(True)
-
-#         # --- FFT PLOT ---
-#         n = len(new_y)
-#         y_demean = new_y - np.mean(new_y)
-#         fft_y = np.fft.fft(y_demean)
-#         freq = np.fft.fftfreq(n, d=new_dx)
-#         amp = np.abs(fft_y) / n
-#         mask = freq >= 0
-#         freq, amp = freq[mask], amp[mask]
-
-#         self.ax_fft.clear()
-#         self.ax_fft.plot(freq, amp, lw=1, color="tab:orange")  # orange FFT
-#         self.ax_fft.set_title("FFT Spectrum")
-#         self.ax_fft.set_xlabel("Frequency (1 / X unit)")
-#         self.ax_fft.set_ylabel("Amplitude")
-#         self.ax_fft.grid(True)
-
-#         # Apply axis limits manually if provided
-#         try:
-#             fmin = float(self.fft_fmin.get()) if self.fft_fmin.get() else None
-#             fmax = float(self.fft_fmax.get()) if self.fft_fmax.get() else None
-#             fymin = float(self.fft_ymin.get()) if self.fft_ymin.get() else None
-#             fymax = float(self.fft_ymax.get()) if self.fft_ymax.get() else None
-#             if (fmin is not None) or (fmax is not None):
-#                 self.ax_fft.set_xlim(fmin, fmax)
-#             if (fymin is not None) or (fymax is not None):
-#                 self.ax_fft.set_ylim(fymin, fymax)
-#         except ValueError:
-#             pass
-
-#         self.canvas.draw_idle()
-#         print(f"FFT recomputed: base dx={dx_est:.4g}, mult={mult}, new dx={new_dx:.4g}, n={n}")
-
-#     # ------------- Save Snapshot -------------
-#     def save_snapshot(self):
-#         fn = f"fft_snapshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
-#         path = filedialog.asksaveasfilename(defaultextension=".png", initialfile=fn)
-#         if not path:
-#             return
-#         try:
-#             self.fig.savefig(path, dpi=300, bbox_inches="tight")
-#             messagebox.showinfo("Saved", f"Snapshot saved:\n{path}")
-#         except Exception as e:
-#             messagebox.showerror("Error", str(e))
-
-# # ---------------------------
-# if __name__ == "__main__":
-#     root = tk.Tk()
-#     app = FFTToolApp(root)
-#     root.mainloop()
-
-# integrated_FFT_GUI_refactored.py
-import sys
-import time
-import os
+import sys, time, os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import numpy as np
@@ -441,17 +203,20 @@ class FFTToolApp:
             y_all = y_all[order]
 
         """
-        ANCHOR| Used for sub-sampling the data and varying the base step size (dx_base).
+        ANCHOR| Used for interpolating data to uniform grid and sub-sampling.
 
-        1. dx_base = float(np.mean(dxs)) --> This is most important input variable for the FFT here, given sampling interval with affect desire, or undesired frequencies 
-        showing up in the FFT.
+        1. dx_base = float(np.mean(dxs)) --> This is the mean step size, used to create a uniform x-grid for FFT.
+           FFT requires uniformly spaced data, so we interpolate y-values onto this uniform grid.
 
-        2. mult = int(self.step_var.get()) --> This is the step size multiplier, which is used to sub-sample the data.
-        x_sub = x_all[::mult] --> This is the sub-sampled x data.
-        y_sub = y_all[::mult] --> This is the sub-sampled y data.
+        2. x_uniform, y_interp --> Create uniform x-grid and interpolate y-values onto it using np.interp().
+           This ensures the FFT receives properly spaced data matching the frequency axis.
 
-        3. n = len(y_sub) --> This is the number of points in the sub-sampled data.
-        These provide a sub-sampled filter to the data, skipping over every nth point where n is the step size multiplier-1.
+        3. mult = int(self.step_var.get()) --> This is the step size multiplier, used to sub-sample the interpolated data.
+           x_sub = x_uniform[::mult] --> Sub-sampled uniform x data.
+           y_sub = y_interp[::mult] --> Sub-sampled interpolated y data.
+
+        4. n = len(y_sub) --> Number of points in the sub-sampled interpolated data.
+           The FFT is computed on these interpolated y-values, which are now properly spaced.
         
         """
         # compute base sampling interval (original dx) using diffs of full data
@@ -463,6 +228,19 @@ class FFTToolApp:
         dx_base = float(np.mean(dxs))
         self.original_dx = dx_base
 
+        # Create uniform x-grid based on mean step size for FFT (FFT requires uniform spacing)
+        x_min = float(x_all[0])
+        x_max = float(x_all[-1])
+        x_uniform = np.arange(x_min, x_max + dx_base, dx_base)
+        # Ensure we don't exceed the original range
+        x_uniform = x_uniform[x_uniform <= x_max]
+        
+        """
+        ANCHOR|Critical step: Interpolate the y-data to a uniform list of x-values - increments are dx_base. This does not affect the multiplier, because it will not affect the step_size multipler,
+        given it is index based (rather than being value based, so will land on interpolated y-values anyways).
+        """
+        y_interp = np.interp(x_uniform, x_all, y_all)
+        
         # integer subsampling multiplier from Spinbox
         try:
             mult = int(self.step_var.get())
@@ -473,25 +251,25 @@ class FFTToolApp:
             mult = 1
             self.step_var.set(1)
 
-        # Subsample by skipping every (mult-1) samples: take every mult'th sample
-        x_sub = x_all[::mult]
-        y_sub = y_all[::mult]
+        # Subsample the interpolated data by skipping every (mult-1) samples: take every mult'th sample
+        x_sub = x_uniform[::mult]
+        y_sub = y_interp[::mult]
 
         if x_sub.size < 4:
             messagebox.showerror("Too few subsampled points",
                                  "Step multiplier too large for this dataset (not enough points).")
             return
 
-        # Compute FFT on subsampled y_sub BUT keep frequency axis based on original dx_base
-        # This matches user's request: frequency axis scale remains fixed; subsampling reduces sample count.
+        # Compute FFT on subsampled interpolated y_sub with frequency axis based on dx_base
+        # The y-values are now properly interpolated onto a uniform grid
         n = len(y_sub)
         y_dm = y_sub - np.mean(y_sub) #--> This is the mean-centered y data. This is done to remove the DC component from the data, which is not relevant to the FFT removing a massive low frequency peak.
         fft_vals = np.fft.fft(y_dm)
-        # use original dx_base for frequency axis so axis does not rescale
+        # use dx_base for frequency axis (now correctly matches the uniform spacing)
         freq = np.fft.fftfreq(n, d=dx_base)
         amp = np.abs(fft_vals) / n
 
-        # Keep positive freqs
+        # Keep positive freqs - apply mask to filter out negaitve frequency values
         pos_mask = freq >= 0
         freq_pos = freq[pos_mask]
         amp_pos = amp[pos_mask]
@@ -515,19 +293,24 @@ class FFTToolApp:
         amp_plot = amp_pos[mask]
 
         # --- Plot raw data (top) ---
-        # Show the subsampled data when multiplier is applied
+        # Show the interpolated uniform data used for FFT
         self.ax_raw.clear()
         if mult > 1:
-            # Plot the subsampled data that was used for FFT
+            # Plot the subsampled interpolated data that was used for FFT
             self.ax_raw.plot(x_sub, y_sub, lw=0.8, color="tab:blue", 
-                           label=f"Subsampled (mult={mult})")
-            # Optionally show original data in lighter color for reference
+                           label=f"Subsampled interpolated (mult={mult})")
+            # Show original non-uniform data in lighter color for reference
             self.ax_raw.plot(x_all, y_all, lw=0.3, color="gray", alpha=0.3, 
-                           label="Original (all points)")
+                           label="Original (non-uniform)")
             self.ax_raw.legend(fontsize=8)
         else:
-            # When mult=1, show all original data
-            self.ax_raw.plot(x_all, y_all, lw=0.8, color="tab:blue")
+            # When mult=1, show interpolated uniform data (what FFT uses)
+            self.ax_raw.plot(x_uniform, y_interp, lw=0.8, color="tab:blue", 
+                           label="Interpolated (uniform grid)")
+            # Show original non-uniform data in lighter color for reference
+            self.ax_raw.plot(x_all, y_all, lw=0.3, color="gray", alpha=0.3, 
+                           marker='o', markersize=2, label="Original (non-uniform)")
+            self.ax_raw.legend(fontsize=8)
         self.ax_raw.set_title(f"Raw data: {y_col} vs {x_col}")
         self.ax_raw.set_xlabel(x_col)
         self.ax_raw.set_ylabel(y_col)
