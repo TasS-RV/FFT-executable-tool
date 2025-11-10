@@ -111,7 +111,7 @@ def data_plotter(df, output_df, input_file, show_xy_plot, show_polar_plot):
     return None
 
 
-def zero_crossing_angle_conversion(input_file, output_file, show_plots=False):
+def zero_crossing_angle_conversion(input_file, output_file, show_plots=False, x_min=None, x_max=None):
     """
     Convert data using zero-crossing detection method.
     
@@ -127,6 +127,8 @@ def zero_crossing_angle_conversion(input_file, output_file, show_plots=False):
         input_file: Path to input CSV file
         output_file: Path to output CSV file
         show_plots: If True, plots sine and cosine with zero crossing markers
+        x_min: Optional minimum X value to truncate data (None = no truncation)
+        x_max: Optional maximum X value to truncate data (None = no truncation)
     
     Returns:
         output_df: DataFrame with position4 (angles), CH4 (signal), X (sequence)
@@ -148,6 +150,22 @@ def zero_crossing_angle_conversion(input_file, output_file, show_plots=False):
     CH2 = df.iloc[:, 2].values  # Sine
     CH3 = df.iloc[:, 3].values  # Cosine
     
+    # Truncate data based on X limits (if specified) to speed up processing/plotting
+    if x_min is not None or x_max is not None:
+        mask = np.ones(len(X), dtype=bool)
+        if x_min is not None:
+            mask = mask & (X >= x_min)
+            print(f"Truncating: X >= {x_min}")
+        if x_max is not None:
+            mask = mask & (X <= x_max)
+            print(f"Truncating: X <= {x_max}")
+        
+        X = X[mask]
+        CH1 = CH1[mask]
+        CH2 = CH2[mask]
+        CH3 = CH3[mask]
+        print(f"Data truncated: {len(X)} points remaining (from {len(df)} original points)")
+    
     # Find and print mean values (DC offsets)
     CH2_mean = np.mean(CH2)
     CH3_mean = np.mean(CH3)
@@ -162,7 +180,13 @@ def zero_crossing_angle_conversion(input_file, output_file, show_plots=False):
     # Detect zero crossings for both sine and cosine
     # Zero crossing occurs when signal crosses zero - need to interpolate exact positions
     def find_zero_crossings_interpolated(x_values, signal):
+
         """
+
+        Possible zero crossing function to use: https://librosa.org/doc/0.11.0/generated/librosa.zero_crossings.html
+        CHECK HERE
+
+
         Find exact zero crossing positions by interpolating between points where sign changes.
         Returns the interpolated X positions where signal = 0.
         """
@@ -330,6 +354,11 @@ if __name__ == "__main__":
     input_file_zc = "085_2U_1132001_original_rotor_and_stator 1.csv"
     output_file_zc = "085_2U_1132001_original_zero_cross.csv"
     show_zc_plots = True  # Set to True to show sine/cosine plots with zero crossing markers
+    
+    # X-value truncation (to speed up plotting/processing)
+    # Set to None to disable truncation, or specify numeric values
+    x_min_truncate = None  # e.g., 0 or None for no minimum limit
+    x_max_truncate = None  # e.g., 10000 or None for no maximum limit
     # ============================================================================
     
     # Perform arctan2-based conversion
@@ -339,4 +368,5 @@ if __name__ == "__main__":
     
     # Perform zero-crossing based conversion
     if use_zero_crossing_method:
-        zero_crossing_angle_conversion(input_file_zc, output_file_zc, show_plots=show_zc_plots)
+        zero_crossing_angle_conversion(input_file_zc, output_file_zc, show_plots=show_zc_plots, 
+                                       x_min=x_min_truncate, x_max=x_max_truncate)
