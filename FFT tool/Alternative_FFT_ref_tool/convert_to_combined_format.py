@@ -352,9 +352,9 @@ if __name__ == "__main__":
     # ============================================================================
     
     # Method 1: Arctan2-based conversion (original method)
-    use_arctan_method = False
-    input_file_arctan = "085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_arctan = "085_2U_1132001_original_combined.csv"
+    use_arctan_method = True
+    input_file_arctan = "Syntec Motor.csv"#"085_2U_1132001_original_rotor_and_stator 1.csv"
+    output_file_arctan = "Syntec Motor_arctan_method.csv" #"085_2U_1132001_original_arctan_method.csv"
     cycles_per_rev = 10000  # Number of sine/cosine cycles per mechanical revolutio - this will depend on the type of encoder used
     
     # Plotting options for arctan method
@@ -363,8 +363,8 @@ if __name__ == "__main__":
     
     # Method 2: Zero-crossing based conversion
     use_zero_crossing_method = True
-    input_file_zc = "085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_zc = "085_2U_1132001_zero_cross_sine_only.csv"
+    input_file_zc = "Syntec Motor.csv"#"085_2U_1132001_original_rotor_and_stator 1.csv"
+    output_file_zc = "Syntec Motor_zero_cross_sine_only.csv" #"085_2U_1132001_zero_cross_sine_only.csv"
     show_zc_plots = False # Set to True to show sine/cosine plots with zero crossing markers - if producing the full plot, set thi to false due to plot rendering beiing very intensive due to many datapoints.
     
     # X-value truncation (to speed up plotting/processing)
