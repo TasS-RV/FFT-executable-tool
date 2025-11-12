@@ -182,11 +182,6 @@ def zero_crossing_angle_conversion(input_file, output_file, show_plots=False, x_
     def find_zero_crossings_interpolated(x_values, signal):
 
         """
-
-        Possible zero crossing function to use: https://librosa.org/doc/0.11.0/generated/librosa.zero_crossings.html
-        CHECK HERE
-
-
         Find exact zero crossing positions by interpolating between points where sign changes.
         Returns the interpolated X positions where signal = 0.
         """
@@ -286,7 +281,15 @@ def zero_crossing_angle_conversion(input_file, output_file, show_plots=False, x_
     
     # Create progressive angles based on zero crossings
     # d_theta per zero crossing = 0.036 degrees (360/10000)
-    d_theta_per_zc = 0.036  # degrees
+
+    """
+
+    ANCHOR| Location where the angle increment per zero crossing is calculated.
+    
+    Note that THIS IS DOUBLE the value used for the arctan method: the arctan is mathematical, as it counts a 'full sinusoidal cycle' - as opposed to half cycles between which the
+    signal crosses zero. Therefore, we multiple cycles_per_rev by 2.
+    """
+    d_theta_per_zc = 360/ (cycles_per_rev*2) #0.036 if doubling the encoder property - this is kept the same for the arctan  # degrees
     
     print(f"\nAngle increment per zero crossing: {d_theta_per_zc} degrees")
     print(f"Creating progressive angles...")
@@ -353,9 +356,9 @@ if __name__ == "__main__":
     
     # Method 1: Arctan2-based conversion (original method)
     use_arctan_method = True
-    input_file_arctan = "Syntec Motor.csv"#"085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_arctan = "Syntec Motor_arctan_method.csv" #"085_2U_1132001_original_arctan_method.csv"
-    cycles_per_rev = 10000  # Number of sine/cosine cycles per mechanical revolutio - this will depend on the type of encoder used
+    input_file_arctan = "085_2U_1132001_original_rotor_and_stator 1.csv"
+    output_file_arctan =  "085_2U_1132001_original_arctan_method.csv"
+    cycles_per_rev = 5000  # Number of sine/cosine cycles per mechanical revolutio - this will depend on the type of encoder used
     
     # Plotting options for arctan method
     show_xy_plot = True   # Set to True to show X-Y plot (Signal vs Accumulated Theta)
@@ -363,8 +366,8 @@ if __name__ == "__main__":
     
     # Method 2: Zero-crossing based conversion
     use_zero_crossing_method = True
-    input_file_zc = "Syntec Motor.csv"#"085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_zc = "Syntec Motor_zero_cross_sine_only.csv" #"085_2U_1132001_zero_cross_sine_only.csv"
+    input_file_zc = "085_2U_1132001_original_rotor_and_stator 1.csv"
+    output_file_zc = "085_2U_1132001_zero_cross_sine_only.csv"
     show_zc_plots = False # Set to True to show sine/cosine plots with zero crossing markers - if producing the full plot, set thi to false due to plot rendering beiing very intensive due to many datapoints.
     
     # X-value truncation (to speed up plotting/processing)
@@ -382,3 +385,6 @@ if __name__ == "__main__":
     if use_zero_crossing_method:
         zero_crossing_angle_conversion(input_file_zc, output_file_zc, show_plots=show_zc_plots, 
                                        x_min=x_min_truncate, x_max=x_max_truncate)
+
+
+   
