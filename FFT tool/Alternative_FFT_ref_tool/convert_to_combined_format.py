@@ -343,7 +343,7 @@ if __name__ == "__main__":
     use_arctan_method = False
     input_file_arctan = "085_2U_1132001_original_rotor_and_stator 1.csv"
     output_file_arctan = "085_2U_1132001_original_combined.csv"
-    cycles_per_rev = 5000  # Number of sine/cosine cycles per mechanical revolution
+    cycles_per_rev = 5000  # Number of sine/cosine cycles per mechanical revolutio - this will depend on the type of encoder used
     
     # Plotting options for arctan method
     show_xy_plot = True   # Set to True to show X-Y plot (Signal vs Accumulated Theta)
@@ -352,12 +352,12 @@ if __name__ == "__main__":
     # Method 2: Zero-crossing based conversion
     use_zero_crossing_method = True
     input_file_zc = "085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_zc = "085_2U_1132001_original_zero_cross.csv"
-    show_zc_plots = True  # Set to True to show sine/cosine plots with zero crossing markers
+    output_file_zc = "085_2U_1132001_zero_cross.csv"
+    show_zc_plots = True  # Set to True to show sine/cosine plots with zero crossing markers - if producing the full plot, set thi to false due to plot rendering beiing very intensive due to many datapoints.
     
     # X-value truncation (to speed up plotting/processing)
     # Set to None to disable truncation, or specify numeric values
-    x_min_truncate = None  # e.g., 0 or None for no minimum limit
+    x_min_truncate = 0 # e.g., 0 or None for no minimum limit
     x_max_truncate = None  # e.g., 10000 or None for no maximum limit
     # ============================================================================
     
