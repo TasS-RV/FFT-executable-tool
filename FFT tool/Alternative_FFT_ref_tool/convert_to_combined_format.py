@@ -218,9 +218,21 @@ def zero_crossing_angle_conversion(input_file, output_file, show_plots=False, x_
     print(f"  CH2 (sine) zero crossings: {len(zc_x_sine)}")
     print(f"  CH3 (cosine) zero crossings: {len(zc_x_cosine)}")
     
+    """
+
+    ANCHOR| Location where the zero crossing list is created and sorted.
+    
+    We can either: Combine zero crossings from both signals and sort by X position, OR 
+    select from ONE of the signals only. This is best, to avoid double counting zero crossings.
+    
+    all_zero_crossings_x = np.concatenate([[X[0]], zc_x_sine, [X[-1]]]) -> For this, only the sine signal is used.
+    """
     # Combine zero crossings from both signals and sort by X position
-    all_zero_crossings_x = np.unique(np.concatenate([zc_x_sine, zc_x_cosine]))
-    all_zero_crossings_x = np.sort(all_zero_crossings_x)
+    # all_zero_crossings_x = np.unique(np.concatenate([zc_x_sine, zc_x_cosine]))
+    # all_zero_crossings_x = np.sort(all_zero_crossings_x)
+
+    all_zero_crossings_x = np.concatenate([[X[0]], zc_x_sine, [X[-1]]])
+    all_zero_crossings_x = np.sort(np.unique(all_zero_crossings_x))
     
     # Ensure we start from beginning and end at the end
     if all_zero_crossings_x[0] > X[0]:
@@ -343,7 +355,7 @@ if __name__ == "__main__":
     use_arctan_method = False
     input_file_arctan = "085_2U_1132001_original_rotor_and_stator 1.csv"
     output_file_arctan = "085_2U_1132001_original_combined.csv"
-    cycles_per_rev = 5000  # Number of sine/cosine cycles per mechanical revolutio - this will depend on the type of encoder used
+    cycles_per_rev = 10000  # Number of sine/cosine cycles per mechanical revolutio - this will depend on the type of encoder used
     
     # Plotting options for arctan method
     show_xy_plot = True   # Set to True to show X-Y plot (Signal vs Accumulated Theta)
@@ -352,8 +364,8 @@ if __name__ == "__main__":
     # Method 2: Zero-crossing based conversion
     use_zero_crossing_method = True
     input_file_zc = "085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_zc = "085_2U_1132001_zero_cross.csv"
-    show_zc_plots = True  # Set to True to show sine/cosine plots with zero crossing markers - if producing the full plot, set thi to false due to plot rendering beiing very intensive due to many datapoints.
+    output_file_zc = "085_2U_1132001_zero_cross_sine_only.csv"
+    show_zc_plots = False # Set to True to show sine/cosine plots with zero crossing markers - if producing the full plot, set thi to false due to plot rendering beiing very intensive due to many datapoints.
     
     # X-value truncation (to speed up plotting/processing)
     # Set to None to disable truncation, or specify numeric values
