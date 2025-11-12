@@ -19,13 +19,18 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
-"""
-2 different approaches - one using the zero crossing method, and one using the arctan method.
-"""
-
 
 def tan_angle_to_mechanical_angle(cycles_per_rev, input_file, output_file):
     
+    """
+    This function uses the arctan method is used to convert the angle to a mechanical angle. Given the encoder contains a sine signal and a cosine signal, this allows them to be ombined
+    using tangent function for the angle between the two signals. This correspondingly gives the angular steps - whcih are cumulatively added to get the total rotation angle.
+
+    This is the more elegant way to approach this, given there is no temporal element, the FFT to be purely in the spatial domain.
+    
+    Credit for the algorithm implementation from: Phill Phillippou, 2025 (relevant file in ./Original_cogging_FFT_tool/cogging.py)
+    """
+
     print(f"Reading input file: {input_file}")
     
     # Read CSV while skipping the second row and selecting CH1, CH2, CH3 (same as cogging.py)
@@ -283,7 +288,6 @@ def zero_crossing_angle_conversion(input_file, output_file, show_plots=False, x_
     # d_theta per zero crossing = 0.036 degrees (360/10000)
 
     """
-
     ANCHOR| Location where the angle increment per zero crossing is calculated.
     
     Note that THIS IS DOUBLE the value used for the arctan method: the arctan is mathematical, as it counts a 'full sinusoidal cycle' - as opposed to half cycles between which the
@@ -356,8 +360,8 @@ if __name__ == "__main__":
     
     # Method 1: Arctan2-based conversion (original method)
     use_arctan_method = True
-    input_file_arctan = "085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_arctan =  "085_2U_1132001_original_arctan_method.csv"
+    input_file_arctan = "./Data/Syntec motor.csv"  # "085_2U_1132001_original_rotor_and_stator 1.csv"
+    output_file_arctan =  "./Data/Syntec_motor_arctan_method.csv"  # "085_2U_1132001_original_arctan_method.csv"
     cycles_per_rev = 5000  # Number of sine/cosine cycles per mechanical revolutio - this will depend on the type of encoder used
     
     # Plotting options for arctan method
@@ -366,8 +370,8 @@ if __name__ == "__main__":
     
     # Method 2: Zero-crossing based conversion
     use_zero_crossing_method = True
-    input_file_zc = "085_2U_1132001_original_rotor_and_stator 1.csv"
-    output_file_zc = "085_2U_1132001_zero_cross_sine_only.csv"
+    input_file_zc = "./Data/Syntec motor.csv"  # "085_2U_1132001_original_rotor_and_stator 1.csv"
+    output_file_zc = "./Data/Syntec_motor_zero_cross_sine_only.csv"  # "085_2U_1132001_zero_cross_sine_only.csv"
     show_zc_plots = False # Set to True to show sine/cosine plots with zero crossing markers - if producing the full plot, set thi to false due to plot rendering beiing very intensive due to many datapoints.
     
     # X-value truncation (to speed up plotting/processing)
