@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import butter, sosfiltfilt, iirnotch, medfilt, detrend, savgol_filter
+from scipy.signal import butter, sosfiltfilt, iirnotch, medfilt, detrend, savgol_filter, sosfreqz, freqz
 
 def estimate_fs_from_x(x):
     """
@@ -101,3 +101,59 @@ def preprocess_signal(x, y,
         y_filt = savgol_filter(y_filt, window_length=sav_window, polyorder=polyorder)
 
     return y_filt
+
+
+def compute_combined_freq_response(freqs,
+                                   fs,
+                                   do_hp=True, hp_cut=0.1, hp_order=3,
+                                   do_notch=False, notch_freqs=None, notch_Q=30,
+                                   do_lp=True, lp_cut=250.0, lp_order=4,
+                                   do_bp=False, bp_low=10.0, bp_high=100.0, bp_order=4):
+    """
+    Compute the combined frequency response (complex) of the linear filters
+    that are enabled in the preprocessing pipeline. Non-linear filters such as
+    median and Savitzky–Golay are ignored because a classical frequency response
+    does not exist or is data dependent.
+
+    Args:
+        freqs: Array of frequency samples (Hz or 1/X units) at which to evaluate.
+        fs: Sampling rate corresponding to the data (same units as freq axis).
+        Remaining parameters mirror the filter enable flags and parameters in
+        preprocess_signal.
+
+    Returns:
+        complex ndarray of the same shape as freqs representing the combined
+        frequency response. Returns None if freqs is empty.
+    """
+    if freqs is None or len(freqs) == 0 or fs <= 0:
+        return None
+
+    # Convert target frequencies to digital rad/sample
+    w = 2.0 * np.pi * np.asarray(freqs) / fs
+    # Clip to the valid digital frequency range [0, π]
+    w = np.clip(w, 0.0, np.pi - 1e-9)
+
+    response = np.ones_like(w, dtype=np.complex128)
+
+    if do_hp:
+        sos_hp = butter_sos(lowcut=hp_cut, highcut=None, fs=fs, order=hp_order)
+        _, h_hp = sosfreqz(sos_hp, worN=w)
+        response *= h_hp
+
+    if do_notch and notch_freqs:
+        for f0 in notch_freqs:
+            b, a = iirnotch(f0 / (0.5 * fs), notch_Q)
+            _, h_notch = freqz(b, a, worN=w)
+            response *= h_notch
+
+    if do_lp:
+        sos_lp = butter_sos(lowcut=None, highcut=lp_cut, fs=fs, order=lp_order)
+        _, h_lp = sosfreqz(sos_lp, worN=w)
+        response *= h_lp
+
+    if do_bp:
+        sos_bp = butter_sos(lowcut=bp_low, highcut=bp_high, fs=fs, order=bp_order)
+        _, h_bp = sosfreqz(sos_bp, worN=w)
+        response *= h_bp
+
+    return response

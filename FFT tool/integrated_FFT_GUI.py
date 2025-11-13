@@ -32,7 +32,10 @@ class FFTToolApp:
         self.last_fft_ylabel = "Amplitude"
         self.last_fft_title = "FFT Spectrum"
         self.last_fft_unit = ""
+        self.last_filter_freq = None
+        self.last_filter_mag_db = None
         self.export_dir = os.getcwd()
+        self.ax_fft_filter = None
 
         # Crosshair / annotation handles
         self.vline_raw = None
@@ -339,6 +342,7 @@ class FFTToolApp:
             return
         dx_base = float(np.mean(dxs))
         self.original_dx = dx_base
+        fs = 1.0 / dx_base
 
         """
         FILTERING STAGE: applied on raw data rather than interpolated data, to avoid losing any information.
@@ -484,6 +488,19 @@ class FFTToolApp:
         freq_pos = freq[pos_mask]
         amp_pos = amp[pos_mask]
 
+        filter_response_complex = compute_combined_freq_response(
+            freq_pos,
+            fs,
+            do_hp=do_hp, hp_cut=hp_cut, hp_order=hp_order,
+            do_notch=do_notch, notch_freqs=notch_freqs, notch_Q=notch_Q,
+            do_lp=do_lp, lp_cut=lp_cut, lp_order=lp_order,
+            do_bp=do_bp, bp_low=bp_low, bp_high=bp_high, bp_order=bp_order
+        )
+        if filter_response_complex is not None:
+            filter_mag = np.abs(filter_response_complex)
+        else:
+            filter_mag = None
+
         # Apply optional frequency plotting limits - in order to scale and truncate the graphs to a particular range
         try:
             fmin = float(self.fmin_entry.get()) if self.fmin_entry.get().strip() != "" else None
@@ -516,6 +533,12 @@ class FFTToolApp:
             mask &= (freq_pos_converted <= fmax)
         freq_plot = freq_pos_converted[mask]
         amp_plot = amp_pos[mask]
+        if filter_mag is not None:
+            filter_mag = filter_mag[mask]
+            with np.errstate(divide='ignore'):
+                filter_mag_db = 20.0 * np.log10(np.maximum(filter_mag, 1e-12))
+        else:
+            filter_mag_db = None
 
         # --- Plot raw data (top) ---
         # Show the interpolated uniform data used for FFT
@@ -561,6 +584,12 @@ class FFTToolApp:
 
         # --- Plot FFT (bottom) ---
         self.ax_fft.clear()
+        if self.ax_fft_filter is not None:
+            try:
+                self.ax_fft_filter.remove()
+            except Exception:
+                pass
+            self.ax_fft_filter = None
         self.ax_fft.plot(freq_plot, amp_plot, lw=0.8, color="orange")
         self.ax_fft.set_title("FFT Spectrum")
         # Update x-axis label based on conversion
@@ -570,6 +599,13 @@ class FFTToolApp:
             self.ax_fft.set_xlabel("Frequency (1 / X unit)")
         self.ax_fft.set_ylabel("Amplitude")
         self.ax_fft.grid(True)
+
+        if filter_mag_db is not None and len(freq_plot) == len(filter_mag_db) and len(freq_plot) > 0:
+            self.ax_fft_filter = self.ax_fft.twinx()
+            self.ax_fft_filter.plot(freq_plot, filter_mag_db, color="purple", lw=0.9, alpha=0.7, label="Filter response")
+            self.ax_fft_filter.set_ylabel("Filter magnitude (dB)", color="purple")
+            self.ax_fft_filter.tick_params(axis='y', labelcolor="purple")
+            self.ax_fft_filter.grid(False)
 
         # apply FFT Y limits if given
         try:
@@ -610,6 +646,12 @@ class FFTToolApp:
         self.last_fft_ylabel = "Amplitude"
         self.last_fft_title = "FFT Spectrum"
         self.last_fft_unit = "cycles/rev" if convert_to_rev else "1/X unit"
+        if filter_mag_db is not None and len(freq_plot) == len(filter_mag_db):
+            self.last_filter_freq = freq_plot
+            self.last_filter_mag_db = filter_mag_db
+        else:
+            self.last_filter_freq = None
+            self.last_filter_mag_db = None
 
         # print small summary to terminal
         print(f"Run: dx_base={dx_base:.6g}, multiplier={mult}, subsampled_points={n}")
@@ -763,10 +805,13 @@ class FFTToolApp:
                 unit = self.last_fft_unit or ""
                 freq_col = f"frequency ({unit})" if unit else "frequency"
                 amp_col = "amplitude"
-                df = pd.DataFrame({
+                data = {
                     freq_col: self.last_fft_freq,
                     amp_col: self.last_fft_amp
-                })
+                }
+                if self.last_filter_freq is not None and self.last_filter_mag_db is not None:
+                    data["filter_magnitude_db"] = self.last_filter_mag_db
+                df = pd.DataFrame(data)
                 df.to_csv(path, index=False)
             else:
                 fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
@@ -775,6 +820,12 @@ class FFTToolApp:
                 ax.set_xlabel(self.last_fft_xlabel)
                 ax.set_ylabel(self.last_fft_ylabel)
                 ax.grid(True, alpha=0.4)
+                if self.last_filter_freq is not None and self.last_filter_mag_db is not None:
+                    ax2 = ax.twinx()
+                    ax2.plot(self.last_filter_freq, self.last_filter_mag_db, color="purple", lw=1.0, alpha=0.7)
+                    ax2.set_ylabel("Filter magnitude (dB)", color="purple")
+                    ax2.tick_params(axis='y', labelcolor="purple")
+                    ax2.grid(False)
                 fig.tight_layout()
                 fig.savefig(path, dpi=300 if file_format == "png" else None, bbox_inches="tight")
                 plt.close(fig)
