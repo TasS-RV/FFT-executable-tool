@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from filter_data import *
+from scipy.signal import medfilt
 
 # Make Tk report exceptions to console (more readable)
 def _tk_exception_handler(self, exc, val, tb):
@@ -83,7 +84,7 @@ class FFTToolApp:
         med_frame.pack(anchor="w", pady=2, fill="x")
         self.do_median_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(med_frame, text="Median filter", variable=self.do_median_var).grid(row=0, column=0, sticky="w")
-        ttk.Label(med_frame, text="k:").grid(row=0, column=1, padx=(8,2))
+        ttk.Label(med_frame, text="Kernel size:").grid(row=0, column=1, padx=(8,2))
         self.median_k_entry = ttk.Entry(med_frame, width=6)
         self.median_k_entry.grid(row=0, column=2, padx=2)
         self.median_k_entry.insert(0, "5")
@@ -310,6 +311,7 @@ class FFTToolApp:
 
         x_all = xs[valid].to_numpy()
         y_all = ys[valid].to_numpy()
+        y_all_original = y_all.copy()
 
         # Sorting x-data: if input data somehow has non chronological time, or picks up 'reverse' rotations  is an error!).
         if not np.all(np.diff(x_all) >= 0):
@@ -439,6 +441,21 @@ class FFTToolApp:
                                     do_savgol=do_savgol, sav_window=sav_window, polyorder=sav_polyorder)
         # Resetting the cleaned y_all data:
         y_all = y_clean
+        if do_median:
+            median_k_eff = median_k if median_k % 2 == 1 else median_k + 1
+            median_k_eff = max(3, median_k_eff)
+            if median_k_eff > len(y_all_original):
+                median_k_eff = len(y_all_original) if len(y_all_original) % 2 == 1 else max(1, len(y_all_original) - 1)
+            try:
+                y_median_only = medfilt(y_all_original, kernel_size=median_k_eff)
+            except Exception:
+                y_median_only = medfilt(y_all_original, kernel_size=3)
+            diff = np.abs(y_all_original - y_median_only)
+            threshold = np.std(y_all_original) * 0.5 if np.std(y_all_original) > 0 else 0.0
+            changed_mask = diff > threshold
+        else:
+            y_median_only = None
+            changed_mask = None
 
         # Create uniform x-grid based on mean step size for FFT (FFT requires uniform spacing)
         x_min = float(x_all[0])
@@ -550,7 +567,6 @@ class FFTToolApp:
             # Show original non-uniform data in lighter color for reference
             self.ax_raw.plot(x_all, y_all, lw=0.3, color="gray", alpha=0.3, 
                            label="Original (non-uniform)")
-            self.ax_raw.legend(fontsize=8)
         else:
             # When mult=1, show interpolated uniform data (what FFT uses)
             self.ax_raw.plot(x_uniform, y_interp, lw=0.8, color="tab:blue", 
@@ -558,11 +574,20 @@ class FFTToolApp:
             # Show original non-uniform data in lighter color for reference
             self.ax_raw.plot(x_all, y_all, lw=0.3, color="gray", alpha=0.3, 
                            marker='o', markersize=2, label="Original (non-uniform)")
-            self.ax_raw.legend(fontsize=8)
+
+        if do_median and y_median_only is not None:
+            self.ax_raw.plot(x_all, y_median_only, color="green", lw=1.0, label="Median filtered (preview)")
+            if changed_mask is not None and np.any(changed_mask):
+                self.ax_raw.scatter(x_all[changed_mask], y_all_original[changed_mask],
+                                    color="red", s=20, label="Median-adjusted points", alpha=0.8)
         self.ax_raw.set_title(f"Raw data: {y_col} vs {x_col}")
         self.ax_raw.set_xlabel(x_col)
         self.ax_raw.set_ylabel(y_col)
         self.ax_raw.grid(True)
+        handles, labels = self.ax_raw.get_legend_handles_labels()
+        if handles:
+            unique = dict(zip(labels, handles))
+            self.ax_raw.legend(unique.values(), unique.keys(), fontsize=8)
 
         # apply raw Y limits if given
         try:
