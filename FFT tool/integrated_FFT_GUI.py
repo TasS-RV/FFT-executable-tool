@@ -31,6 +31,7 @@ class FFTToolApp:
         self.last_fft_xlabel = "Frequency"
         self.last_fft_ylabel = "Amplitude"
         self.last_fft_title = "FFT Spectrum"
+        self.last_fft_unit = ""
         self.export_dir = os.getcwd()
 
         # Crosshair / annotation handles
@@ -494,6 +495,7 @@ class FFTToolApp:
             fmax = None
         """
         ANCHOR| Frequency unit conversion (cycles/degree to cycles/revolution)    
+        
         This is used to convert the frequency axis to cycles/revolution, which is more intuitive for the user.
         This is done by multiplying the temporal frequency by 360, which is the number of degrees in a revolution. Whcich actually gives a meaningful spatial
         oscillation/ variation for something like a torque ripple/ cogging measurement.
@@ -607,6 +609,7 @@ class FFTToolApp:
         self.last_fft_xlabel = "Frequency (cycles / revolution)" if convert_to_rev else "Frequency (1 / X unit)"
         self.last_fft_ylabel = "Amplitude"
         self.last_fft_title = "FFT Spectrum"
+        self.last_fft_unit = "cycles/rev" if convert_to_rev else "1/X unit"
 
         # print small summary to terminal
         print(f"Run: dx_base={dx_base:.6g}, multiplier={mult}, subsampled_points={n}")
@@ -714,7 +717,12 @@ class FFTToolApp:
 
         ttk.Label(self.fft_export_win, text="Format:").grid(row=4, column=0, padx=10, pady=(8,4), sticky="w")
         self.fft_format_var = tk.StringVar(value="png")
-        ttk.Combobox(self.fft_export_win, textvariable=self.fft_format_var, values=["png", "pdf", "svg"], state="readonly").grid(row=5, column=0, padx=10, pady=2, sticky="ew")
+        ttk.Combobox(
+            self.fft_export_win,
+            textvariable=self.fft_format_var,
+            values=["png", "pdf", "svg", "csv"],
+            state="readonly"
+        ).grid(row=5, column=0, padx=10, pady=2, sticky="ew")
 
         btn_frame = ttk.Frame(self.fft_export_win)
         btn_frame.grid(row=6, column=0, padx=10, pady=(12,10), sticky="e")
@@ -743,7 +751,7 @@ class FFTToolApp:
         if not os.path.isdir(directory):
             messagebox.showerror("Invalid folder", "Selected folder does not exist.")
             return
-        valid_exts = {"png", "pdf", "svg"}
+        valid_exts = {"png", "pdf", "svg", "csv"}
         if file_format not in valid_exts:
             messagebox.showerror("Invalid format", f"Choose one of: {', '.join(sorted(valid_exts))}.")
             return
@@ -751,21 +759,32 @@ class FFTToolApp:
         path = os.path.join(directory, f"{filename}.{file_format}")
 
         try:
-            fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
-            ax.plot(self.last_fft_freq, self.last_fft_amp, color="orange", lw=1.2)
-            ax.set_title(self.last_fft_title)
-            ax.set_xlabel(self.last_fft_xlabel)
-            ax.set_ylabel(self.last_fft_ylabel)
-            ax.grid(True, alpha=0.4)
-            fig.tight_layout()
-            fig.savefig(path, dpi=300 if file_format == "png" else None, bbox_inches="tight")
-            plt.close(fig)
+            if file_format == "csv":
+                unit = self.last_fft_unit or ""
+                freq_col = f"frequency ({unit})" if unit else "frequency"
+                amp_col = "amplitude"
+                df = pd.DataFrame({
+                    freq_col: self.last_fft_freq,
+                    amp_col: self.last_fft_amp
+                })
+                df.to_csv(path, index=False)
+            else:
+                fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
+                ax.plot(self.last_fft_freq, self.last_fft_amp, color="orange", lw=1.2)
+                ax.set_title(self.last_fft_title)
+                ax.set_xlabel(self.last_fft_xlabel)
+                ax.set_ylabel(self.last_fft_ylabel)
+                ax.grid(True, alpha=0.4)
+                fig.tight_layout()
+                fig.savefig(path, dpi=300 if file_format == "png" else None, bbox_inches="tight")
+                plt.close(fig)
+
             self.export_dir = directory
-            messagebox.showinfo("Saved", f"FFT graph saved to:\n{path}")
+            messagebox.showinfo("Saved", f"FFT data saved to:\n{path}")
             if getattr(self, "fft_export_win", None) is not None:
                 self.fft_export_win.destroy()
         except Exception as e:
-            messagebox.showerror("Save failed", f"Could not save FFT graph:\n{e}")
+            messagebox.showerror("Save failed", f"Could not save FFT data:\n{e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
