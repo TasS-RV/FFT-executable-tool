@@ -26,6 +26,12 @@ class FFTToolApp:
         self.full_df = None
         self.numeric_cols = []
         self.original_dx = None
+        self.last_fft_freq = None
+        self.last_fft_amp = None
+        self.last_fft_xlabel = "Frequency"
+        self.last_fft_ylabel = "Amplitude"
+        self.last_fft_title = "FFT Spectrum"
+        self.export_dir = os.getcwd()
 
         # Crosshair / annotation handles
         self.vline_raw = None
@@ -190,6 +196,7 @@ class FFTToolApp:
         # Run & Save controls
         ttk.Button(ctrl, text="Run (recompute)", command=self.run_plot).pack(fill="x", pady=(12,6))
         ttk.Button(ctrl, text="Save Snapshot", command=self.save_snapshot).pack(fill="x")
+        ttk.Button(ctrl, text="Export FFT Graph…", command=self.open_fft_export_window).pack(fill="x", pady=(6,0))
 
         ttk.Separator(ctrl).pack(fill="x", pady=10)
         self.cursor_label = ttk.Label(ctrl, text="Cursor: (none)", wraplength=260)
@@ -593,6 +600,14 @@ class FFTToolApp:
         self.canvas.draw_idle()
         self.plotted_once = True
 
+        
+        # cache FFT data for export - storing the plot data intpo variables for parsing and storing into a file
+        self.last_fft_freq = freq_plot
+        self.last_fft_amp = amp_plot
+        self.last_fft_xlabel = "Frequency (cycles / revolution)" if convert_to_rev else "Frequency (1 / X unit)"
+        self.last_fft_ylabel = "Amplitude"
+        self.last_fft_title = "FFT Spectrum"
+
         # print small summary to terminal
         print(f"Run: dx_base={dx_base:.6g}, multiplier={mult}, subsampled_points={n}")
         print("First positive freq bins (up to 6):")
@@ -669,6 +684,88 @@ class FFTToolApp:
         except Exception as e:
             messagebox.showerror("Save failed", str(e))
 
+    # -------------------------
+    # Export FFT graph
+    # -------------------------
+    def open_fft_export_window(self):
+        if not self.plotted_once or self.last_fft_freq is None or self.last_fft_amp is None:
+            messagebox.showwarning("Nothing to export", "Run the FFT first before exporting.")
+            return
+
+        if getattr(self, "fft_export_win", None) is not None and tk.Toplevel.winfo_exists(self.fft_export_win):
+            self.fft_export_win.lift()
+            return
+
+        self.fft_export_win = tk.Toplevel(self.root)
+        self.fft_export_win.title("Export FFT Graph")
+        self.fft_export_win.resizable(False, False)
+
+        ttk.Label(self.fft_export_win, text="File name (without extension):").grid(row=0, column=0, padx=10, pady=(10,4), sticky="w")
+        default_name = f"fft_graph_{time.strftime('%Y%m%d_%H%M%S')}"
+        self.fft_filename_var = tk.StringVar(value=default_name)
+        ttk.Entry(self.fft_export_win, textvariable=self.fft_filename_var, width=32).grid(row=1, column=0, padx=10, pady=2, sticky="ew")
+
+        ttk.Label(self.fft_export_win, text="Save to folder:").grid(row=2, column=0, padx=10, pady=(8,4), sticky="w")
+        self.fft_dir_var = tk.StringVar(value=self.export_dir)
+        dir_frame = ttk.Frame(self.fft_export_win)
+        dir_frame.grid(row=3, column=0, padx=10, pady=2, sticky="ew")
+        ttk.Entry(dir_frame, textvariable=self.fft_dir_var, width=32).grid(row=0, column=0, sticky="ew")
+        ttk.Button(dir_frame, text="Browse…", command=self.browse_fft_directory).grid(row=0, column=1, padx=(6,0))
+
+        ttk.Label(self.fft_export_win, text="Format:").grid(row=4, column=0, padx=10, pady=(8,4), sticky="w")
+        self.fft_format_var = tk.StringVar(value="png")
+        ttk.Combobox(self.fft_export_win, textvariable=self.fft_format_var, values=["png", "pdf", "svg"], state="readonly").grid(row=5, column=0, padx=10, pady=2, sticky="ew")
+
+        btn_frame = ttk.Frame(self.fft_export_win)
+        btn_frame.grid(row=6, column=0, padx=10, pady=(12,10), sticky="e")
+        ttk.Button(btn_frame, text="Cancel", command=self.fft_export_win.destroy).grid(row=0, column=0, padx=(0,6))
+        ttk.Button(btn_frame, text="Save", command=self.save_fft_graph).grid(row=0, column=1)
+
+        self.fft_export_win.grab_set()
+
+    def browse_fft_directory(self):
+        directory = filedialog.askdirectory(initialdir=self.export_dir, title="Select export folder")
+        if directory:
+            self.fft_dir_var.set(directory)
+            self.export_dir = directory
+
+    def save_fft_graph(self):
+        filename = self.fft_filename_var.get().strip() if hasattr(self, "fft_filename_var") else ""
+        directory = self.fft_dir_var.get().strip() if hasattr(self, "fft_dir_var") else ""
+        file_format = self.fft_format_var.get().lower() if hasattr(self, "fft_format_var") else "png"
+
+        if not filename:
+            messagebox.showerror("Missing file name", "Please enter a file name.")
+            return
+        if not directory:
+            messagebox.showerror("Missing folder", "Please choose a folder to save into.")
+            return
+        if not os.path.isdir(directory):
+            messagebox.showerror("Invalid folder", "Selected folder does not exist.")
+            return
+        valid_exts = {"png", "pdf", "svg"}
+        if file_format not in valid_exts:
+            messagebox.showerror("Invalid format", f"Choose one of: {', '.join(sorted(valid_exts))}.")
+            return
+
+        path = os.path.join(directory, f"{filename}.{file_format}")
+
+        try:
+            fig, ax = plt.subplots(figsize=(8, 5), dpi=120)
+            ax.plot(self.last_fft_freq, self.last_fft_amp, color="orange", lw=1.2)
+            ax.set_title(self.last_fft_title)
+            ax.set_xlabel(self.last_fft_xlabel)
+            ax.set_ylabel(self.last_fft_ylabel)
+            ax.grid(True, alpha=0.4)
+            fig.tight_layout()
+            fig.savefig(path, dpi=300 if file_format == "png" else None, bbox_inches="tight")
+            plt.close(fig)
+            self.export_dir = directory
+            messagebox.showinfo("Saved", f"FFT graph saved to:\n{path}")
+            if getattr(self, "fft_export_win", None) is not None:
+                self.fft_export_win.destroy()
+        except Exception as e:
+            messagebox.showerror("Save failed", f"Could not save FFT graph:\n{e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
