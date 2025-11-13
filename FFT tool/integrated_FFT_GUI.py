@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from filter_data import *
-from scipy.signal import medfilt
+from scipy.signal import medfilt, savgol_filter
 
 # Make Tk report exceptions to console (more readable)
 def _tk_exception_handler(self, exc, val, tb):
@@ -89,6 +89,11 @@ class FFTToolApp:
         self.median_k_entry.grid(row=0, column=2, padx=2)
         self.median_k_entry.insert(0, "5")
         
+
+        # This adjusts the varibales to toggle the preview of the median filter on or off - it overlays the raw data, which can make visualisation quite difficult
+        self.show_median_preview_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(med_frame, text="Preview", variable=self.show_median_preview_var).grid(row=0, column=3, padx=(8,0))
+        
         # High-pass filter
         hp_frame = ttk.Frame(ctrl)
         hp_frame.pack(anchor="w", pady=2, fill="x")
@@ -162,6 +167,8 @@ class FFTToolApp:
         self.sav_polyorder_entry = ttk.Entry(sav_frame, width=6)
         self.sav_polyorder_entry.grid(row=0, column=4, padx=2)
         self.sav_polyorder_entry.insert(0, "3")
+        self.show_savgol_preview_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(sav_frame, text="Preview", variable=self.show_savgol_preview_var).grid(row=0, column=5, padx=(8,0))
 
         ttk.Separator(ctrl).pack(fill="x", pady=8)
 
@@ -441,21 +448,35 @@ class FFTToolApp:
                                     do_savgol=do_savgol, sav_window=sav_window, polyorder=sav_polyorder)
         # Resetting the cleaned y_all data:
         y_all = y_clean
-        if do_median:
-            median_k_eff = median_k if median_k % 2 == 1 else median_k + 1
-            median_k_eff = max(3, median_k_eff)
-            if median_k_eff > len(y_all_original):
-                median_k_eff = len(y_all_original) if len(y_all_original) % 2 == 1 else max(1, len(y_all_original) - 1)
-            try:
-                y_median_only = medfilt(y_all_original, kernel_size=median_k_eff)
-            except Exception:
-                y_median_only = medfilt(y_all_original, kernel_size=3)
+
+        show_median_preview = do_median and self.show_median_preview_var.get()
+        show_savgol_preview = do_savgol and self.show_savgol_preview_var.get()
+
+        if show_median_preview:
+            median_k_eff = medfilt_kernel_safe(median_k, len(y_all_original))
+            y_median_only = medfilt(y_all_original, kernel_size=median_k_eff)
             diff = np.abs(y_all_original - y_median_only)
             threshold = np.std(y_all_original) * 0.5 if np.std(y_all_original) > 0 else 0.0
-            changed_mask = diff > threshold
+            median_changed_mask = diff > threshold
         else:
             y_median_only = None
-            changed_mask = None
+            median_changed_mask = None
+
+        if show_savgol_preview:
+            sav_window_eff, sav_poly_eff = savgol_params_safe(sav_window, sav_polyorder, len(y_all_original))
+            try:
+                y_savgol_only = savgol_filter(y_all_original, window_length=sav_window_eff, polyorder=sav_poly_eff)
+            except ValueError:
+                y_savgol_only = None
+            if y_savgol_only is not None:
+                diff_sg = np.abs(y_all_original - y_savgol_only)
+                threshold_sg = np.std(y_all_original) * 0.35 if np.std(y_all_original) > 0 else 0.0
+                savgol_changed_mask = diff_sg > threshold_sg
+            else:
+                savgol_changed_mask = None
+        else:
+            y_savgol_only = None
+            savgol_changed_mask = None
 
         # Create uniform x-grid based on mean step size for FFT (FFT requires uniform spacing)
         x_min = float(x_all[0])
@@ -575,11 +596,17 @@ class FFTToolApp:
             self.ax_raw.plot(x_all, y_all, lw=0.3, color="gray", alpha=0.3, 
                            marker='o', markersize=2, label="Original (non-uniform)")
 
-        if do_median and y_median_only is not None:
-            self.ax_raw.plot(x_all, y_median_only, color="green", lw=1.0, label="Median filtered (preview)")
-            if changed_mask is not None and np.any(changed_mask):
-                self.ax_raw.scatter(x_all[changed_mask], y_all_original[changed_mask],
-                                    color="red", s=20, label="Median-adjusted points", alpha=0.8)
+        if show_median_preview and y_median_only is not None:
+            self.ax_raw.plot(x_all, y_median_only, color="green", lw=1.0, label="Median (preview)")
+            if median_changed_mask is not None and np.any(median_changed_mask):
+                self.ax_raw.scatter(x_all[median_changed_mask], y_all_original[median_changed_mask],
+                                    color="red", s=12, label="Median-adjusted", alpha=0.7)
+
+        if show_savgol_preview and y_savgol_only is not None:
+            self.ax_raw.plot(x_all, y_savgol_only, color="purple", lw=1.0, label="Savitzky–Golay (preview)")
+            if savgol_changed_mask is not None and np.any(savgol_changed_mask):
+                self.ax_raw.scatter(x_all[savgol_changed_mask], y_all_original[savgol_changed_mask],
+                                    color="magenta", s=12, label="Savitzky–Golay adjusted", alpha=0.6)
         self.ax_raw.set_title(f"Raw data: {y_col} vs {x_col}")
         self.ax_raw.set_xlabel(x_col)
         self.ax_raw.set_ylabel(y_col)

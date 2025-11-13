@@ -58,7 +58,8 @@ def preprocess_signal(x, y,
                       do_notch=False, notch_freqs=None, notch_Q=30,
                       do_lp=True, lp_cut=250.0, lp_order=4,
                       do_bp=False, bp_low=10.0, bp_high=100.0, bp_order=4,
-                      do_savgol=False, sav_window=11, polyorder=3):
+                      do_savgol=False, sav_window=11, polyorder=3,
+                      return_intermediates=False):
     """
     Full preprocessing pipeline for arbitrary (x, y) data.
     Filters are applied in the time domain (not on interpolated uniform data).
@@ -71,6 +72,7 @@ def preprocess_signal(x, y,
 
     # 2️⃣ Median filter to remove spikes
     if do_median:
+        median_k = medfilt_kernel_safe(median_k, len(y_filt))
         y_filt = medfilt(y_filt, kernel_size=median_k)
 
     # 3️⃣ High-pass to remove drift / DC
@@ -95,12 +97,44 @@ def preprocess_signal(x, y,
 
     # 6️⃣ Optional Savitzky–Golay smoothing
     if do_savgol:
-        if sav_window % 2 == 0:
-            sav_window += 1
-        sav_window = min(sav_window, len(y_filt) - 1)
+        sav_window, polyorder = savgol_params_safe(sav_window, polyorder, len(y_filt))
         y_filt = savgol_filter(y_filt, window_length=sav_window, polyorder=polyorder)
 
+    if return_intermediates:
+        return y_filt, fs
     return y_filt
+def medfilt_kernel_safe(k, n):
+    k = int(k)
+    if k < 3:
+        k = 3
+    if k % 2 == 0:
+        k += 1
+    k = min(k, n)
+    if k % 2 == 0:
+        k = max(1, k - 1)
+    if k < 1:
+        k = 1
+    return k
+
+
+def savgol_params_safe(window, polyorder, n):
+    window = int(window)
+    polyorder = int(polyorder)
+    if window < 3:
+        window = 3
+    if window % 2 == 0:
+        window += 1
+    window = min(window, n)
+    if window % 2 == 0:
+        window = max(1, window - 1)
+    if window <= 1:
+        window = 3
+    polyorder = max(1, polyorder)
+    if polyorder >= window:
+        polyorder = window - 1
+    if polyorder < 1:
+        polyorder = 1
+    return window, polyorder
 
 
 def compute_combined_freq_response(freqs,
