@@ -94,6 +94,20 @@ class FFTToolApp:
         self.show_median_preview_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(med_frame, text="Preview", variable=self.show_median_preview_var).grid(row=0, column=3, padx=(8,0))
         
+        # Amplitude clamp
+        amp_frame = ttk.Frame(ctrl)
+        amp_frame.pack(anchor="w", pady=2, fill="x")
+        self.do_amp_clip_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(amp_frame, text="Amplitude clamp", variable=self.do_amp_clip_var).grid(row=0, column=0, sticky="w")
+        ttk.Label(amp_frame, text="Min:").grid(row=0, column=1, padx=(8,2))
+        self.amp_min_entry = ttk.Entry(amp_frame, width=8)
+        self.amp_min_entry.grid(row=0, column=2, padx=2)
+        ttk.Label(amp_frame, text="Max:").grid(row=0, column=3, padx=(8,2))
+        self.amp_max_entry = ttk.Entry(amp_frame, width=8)
+        self.amp_max_entry.grid(row=0, column=4, padx=2)
+        self.show_amp_clip_preview_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(amp_frame, text="Preview", variable=self.show_amp_clip_preview_var).grid(row=0, column=5, padx=(8,0))
+
         # High-pass filter
         hp_frame = ttk.Frame(ctrl)
         hp_frame.pack(anchor="w", pady=2, fill="x")
@@ -154,9 +168,11 @@ class FFTToolApp:
         self.bp_order_entry.grid(row=0, column=6, padx=2)
         self.bp_order_entry.insert(0, "4")
         
-        # Savitzky-Golay filter
+        # Savitzky-Golay filter 
         sav_frame = ttk.Frame(ctrl)
         sav_frame.pack(anchor="w", pady=2, fill="x")
+
+        # This toggles turning the savgilter on or off - must apply a 'Recompute' in order to visualise any of this
         self.do_savgol_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(sav_frame, text="Savitzky-Golay", variable=self.do_savgol_var).grid(row=0, column=0, sticky="w")
         ttk.Label(sav_frame, text="Window:").grid(row=0, column=1, padx=(8,2))
@@ -368,12 +384,32 @@ class FFTToolApp:
         do_lp = self.do_lp_var.get()
         do_bp = self.do_bp_var.get()
         do_savgol = self.do_savgol_var.get()
+        do_amp_clip = self.do_amp_clip_var.get()
+        show_amp_preview = do_amp_clip and self.show_amp_clip_preview_var.get()
         
         # Read and parse filter parameters from UI (only if filter is enabled)
         try:
             median_k = int(self.median_k_entry.get()) if do_median else 5
         except (ValueError, AttributeError):
             median_k = 5
+
+        try:
+            if do_amp_clip:
+                amp_min = float(self.amp_min_entry.get()) if self.amp_min_entry.get().strip() != "" else None
+            else:
+                amp_min = None
+        except (ValueError, AttributeError):
+            amp_min = None
+        try:
+            if do_amp_clip:
+                amp_max = float(self.amp_max_entry.get()) if self.amp_max_entry.get().strip() != "" else None
+            else:
+                amp_max = None
+        except (ValueError, AttributeError):
+            amp_max = None
+        if do_amp_clip and amp_min is not None and amp_max is not None and amp_min > amp_max:
+            messagebox.showerror("Amplitude clamp error", "Amplitude minimum is greater than maximum.")
+            return
             
         try:
             if do_hp:
@@ -441,6 +477,7 @@ class FFTToolApp:
         # Apply filtering with UI-controlled parameters
         y_clean = preprocess_signal(x_all, y_all,
                                     do_median=do_median, median_k=median_k,
+                                    do_amp_clip=do_amp_clip, amp_min=amp_min, amp_max=amp_max,
                                     do_hp=do_hp, hp_cut=hp_cut, hp_order=hp_order,
                                     do_notch=do_notch, notch_freqs=notch_freqs, notch_Q=notch_Q,
                                     do_lp=do_lp, lp_cut=lp_cut, lp_order=lp_order,
@@ -477,6 +514,13 @@ class FFTToolApp:
         else:
             y_savgol_only = None
             savgol_changed_mask = None
+
+        if show_amp_preview:
+            y_amp_clipped = apply_amplitude_clip(y_all_original, amp_min, amp_max)
+            amp_changed_mask = np.abs(y_amp_clipped - y_all_original) > 1e-12
+        else:
+            y_amp_clipped = None
+            amp_changed_mask = None
 
         # Create uniform x-grid based on mean step size for FFT (FFT requires uniform spacing)
         x_min = float(x_all[0])
@@ -607,6 +651,16 @@ class FFTToolApp:
             if savgol_changed_mask is not None and np.any(savgol_changed_mask):
                 self.ax_raw.scatter(x_all[savgol_changed_mask], y_all_original[savgol_changed_mask],
                                     color="magenta", s=12, label="Savitzky–Golay adjusted", alpha=0.6)
+
+        if show_amp_preview and y_amp_clipped is not None:
+            self.ax_raw.plot(x_all, y_amp_clipped, color="darkred", lw=1.0, label="Amplitude clamp (preview)")
+            if amp_min is not None:
+                self.ax_raw.axhline(amp_min, color="darkred", linestyle="--", linewidth=0.8, alpha=0.6)
+            if amp_max is not None:
+                self.ax_raw.axhline(amp_max, color="darkred", linestyle="--", linewidth=0.8, alpha=0.6)
+            if amp_changed_mask is not None and np.any(amp_changed_mask):
+                self.ax_raw.scatter(x_all[amp_changed_mask], y_all_original[amp_changed_mask],
+                                    color="brown", s=10, label="Amplitude-clamped", alpha=0.6)
         self.ax_raw.set_title(f"Raw data: {y_col} vs {x_col}")
         self.ax_raw.set_xlabel(x_col)
         self.ax_raw.set_ylabel(y_col)

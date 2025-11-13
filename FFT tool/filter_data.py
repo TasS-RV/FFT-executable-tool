@@ -54,6 +54,7 @@ def apply_notch(y, f0, fs, Q=30):
 
 def preprocess_signal(x, y,
                       do_median=True, median_k=5,
+                      do_amp_clip=False, amp_min=None, amp_max=None,
                       do_hp=True, hp_cut=0.1, hp_order=3,
                       do_notch=False, notch_freqs=None, notch_Q=30,
                       do_lp=True, lp_cut=250.0, lp_order=4,
@@ -74,6 +75,10 @@ def preprocess_signal(x, y,
     if do_median:
         median_k = medfilt_kernel_safe(median_k, len(y_filt))
         y_filt = medfilt(y_filt, kernel_size=median_k)
+
+    # 2b️⃣ Amplitude clipping (user-defined thresholds)
+    if do_amp_clip and (amp_min is not None or amp_max is not None):
+        y_filt = apply_amplitude_clip(y_filt, amp_min, amp_max)
 
     # 3️⃣ High-pass to remove drift / DC
     if do_hp:
@@ -135,6 +140,15 @@ def savgol_params_safe(window, polyorder, n):
     if polyorder < 1:
         polyorder = 1
     return window, polyorder
+
+
+def apply_amplitude_clip(y, min_val=None, max_val=None):
+    clipped = np.array(y, copy=True)
+    if min_val is not None:
+        clipped = np.maximum(clipped, min_val)
+    if max_val is not None:
+        clipped = np.minimum(clipped, max_val)
+    return clipped
 
 
 def compute_combined_freq_response(freqs,
