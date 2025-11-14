@@ -9,6 +9,17 @@ Tool for parsing data and performing FFT with specialised sub-sampling features.
 3. Video/ image instruction of the various features of the tool and how to use it (video for internal iNetic staff, image guide for external users of the tool)
 
 <hr>
+The actual `.exe` executable is not located in this repository. To run the tool in python, make sure you have all the required packages. 
+
+1. Install all dependencies by:
+`pip install -r required_packages.txt`
+
+(This contains all the required libraries and packages - although this is NOT a distilled list, and contains various other packages used in development of this tool, but not strictly required to run the tool program itself).
+
+2. The run the script:
+`python integrated_FFT_GUI.py`
+
+
 
 Some pertinent notes about the files in this workspace:
 
