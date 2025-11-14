@@ -69,10 +69,12 @@ class FFTToolApp:
         # step multiplier - integer Spinbox (explicit integers)
         ttk.Label(ctrl, text="Step multiplier (subsample every Nth point):").pack(anchor="w")
         self.step_var = tk.IntVar(value=1)
-        self.step_spin = tk.Spinbox(ctrl, from_=1, to=50, textvariable=self.step_var, width=8,
+        step_frame = ttk.Frame(ctrl)
+        step_frame.pack(anchor="w", pady=(2, 6))
+        self.step_spin = tk.Spinbox(step_frame, from_=1, to=50, textvariable=self.step_var, width=8,
                                     command=self.on_step_change)
-        self.step_spin.pack(anchor="w", pady=(2, 6))
-        ttk.Label(ctrl, text="(Integer; 1 = use all samples)").pack(anchor="w", pady=(0,6))
+        self.step_spin.grid(row=0, column=0, sticky="w")
+        ttk.Label(step_frame, text="(Integer; 1 = use all samples)").grid(row=0, column=1, padx=(8, 0), sticky="w")
 
         ttk.Separator(ctrl).pack(fill="x", pady=8)
         

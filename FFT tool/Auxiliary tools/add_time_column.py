@@ -3,10 +3,16 @@ TEMPORARY UTILITY FUNCTION
 Adds time column to Combined_book4.csv
 This function can be deleted after running once.
 
-Useful for data parsed form the Oscilloscope USB file - due to being stored in mixed data format (annoying presense of Strings).
+This is for data from the torque cogging rig - WHY IS THIS NECESSARY?   
+
+The oscilloscope has a consant sampling rate - the 'X' is the 'number' of each timestep, which should be multiplied
+by the period of the sampling rate. This will get the time step. 
+
+Also note, the original data is stored in mixed data format (annoying presense of Strings) - which is additional conversions
+are necessary into integer and floats.
 """
 import pandas as pd
-import numpy as np
+import numpy as n
 
 def add_time_column_to_csv():
     """Add time column to Combined_book4.csv and save it."""
